@@ -1,6 +1,6 @@
 # Involving other HIV modellers (v0.2)
 
-**Framing:** this is one model that makes the field's structural choices explicit and testable. It does not replace anyone's model, and it ranks none. Model diversity is the reason the menu exists.
+**Framing:** validated models agree on what is observed and disagree on what isn't. HIVsim tests which answers the data actually pin down. It does not replace anyone's model, and it ranks none. Other groups' validation work supports the premise.
 
 **Principles**
 1. Switches are described by mechanism, never as "model X". Any table mapping switches to named models is reviewed by those groups before it appears anywhere.
