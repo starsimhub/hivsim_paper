@@ -89,7 +89,56 @@ Ease is rated 1–5, higher = easier.
   - **Paper B** (Nat Comput Sci): the platform, the composability demo and the AI benchmark.
   - Preprint both and cross-cite.
 
-## 4. Sources
+## 4. Paper2Agent and comparators (added 2026-10-21)
+
+Paper2Agent: arXiv 2509.06917; repo jmiao24/Paper2Agent (MIT), now shipped as a Claude Code skill (`paper2mcp`, `paper2skill`).
+
+**Pipeline** (multi-agent, Claude Agent SDK), producing one MCP server per paper:
+1. Clone the repo and build its environment.
+2. Scan the tutorials, run them, and keep their outputs as ground truth.
+3. Extract and parameterise functions as MCP tools.
+4. Test-and-fix loop, up to 6 tries per function. A tool passes if numbers are within 3% and figures match by perceptual hash; tools that keep failing are dropped.
+
+The resulting server has three parts: tools (validated functions), resources (paper, supplement, data) and prompts (workflow templates).
+
+**Evaluation**
+
+| Test | Result |
+|---|---|
+| AlphaGenome, tutorial-derived / novel queries | 98.7% / 100%, vs Claude+Repo 82.7% / 78.7% |
+| AlphaGenome, open-ended queries | 82.7% |
+| 100 unfiltered papers | 74 agentified, ~$15 per paper; 91.2% on 300 questions |
+| Out-of-scope questions | 100% refused |
+| Ablation: Markdown skills instead of MCP tools | **73% vs 99%** |
+| Ablation: no verifier | 69% |
+
+**Stated open problem:** "evaluating the range of defensible answers". Their benchmarks grade faithful execution against one reference answer, not analytical validity.
+
+**What HIVMC adds beyond Paper2Agent:**
+- a multi-model structural registry;
+- model selection for a given question;
+- divergence explained by structural assumptions ("it depends on X, Y, Z");
+- emulators;
+- uncertainty;
+- escalation to the group that owns a model;
+- tests on output distributions for stochastic ABMs (a single 3% match doesn't fit them).
+
+**Comparators**
+- **Silhol et al. Lancet HIV 2026;13:e30** (9 models, 15 settings, sex-work tPAF; PMID 41275868). A natural human-generated benchmark for the sex-work question.
+- **"Many AI analysts, one dataset"** (PNAS 2026;123(29):e2606495123). LLM analysts reproduce the spread between human analysts and trace it to analytic choices; the closest framing.
+- **EPIAGENT** (arXiv 2602.00299). Builds new compartmental simulators; HIVMC instead queries existing, validated models.
+- **EpidemIQs** (arXiv 2510.00024).
+- **CISNET model profiles.** Precedent for the registry.
+- **Safeguards:** Tang et al. Nat Commun 2025 (10.1038/s41467-025-63913-1); SafeScientist; SciGuard.
+- No prior LLM + HIV-model work found [needs a final check].
+
+**Venues** (Nature Computational Science excluded):
+- **Primary:** Nature Health. Its scope covers modelling, AI and low- and middle-income settings, and it accepts presubmission enquiries.
+- **Reach:** Nature, if the benchmark is strong and scales beyond one model.
+- **Fallback:** PNAS, framed as the science of model disagreement.
+- **Possible:** Science (Biomni precedent); Nature Medicine (its agent papers are all clinical).
+
+## 5. Sources
 
 Full agent reports with URLs are in the session transcript (2026-10-21). Key DOIs:
 - Bansi-Matharu 2025: 10.1016/S2214-109X(25)00121-4
