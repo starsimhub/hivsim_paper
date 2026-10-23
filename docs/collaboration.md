@@ -1,6 +1,8 @@
 # Involving other HIV modellers (v0.2)
 
-**Framing:** validated models agree on what is observed and disagree on what isn't. HIVsim tests which answers the data actually pin down. It does not replace anyone's model, and it ranks none. Other groups' validation work supports the premise.
+**Framing:** validated models agree on what is observed and disagree on what isn't. Decomposition explains which components drive a gap. It ranks no model. Each original model stays the authoritative version, and re-expressions must reproduce it.
+
+**Model pairs:** the first pair is HIVsim and Optima (ours). Any other model is re-expressed only with its team taking part, and the team verifies the re-expression and co-authors the paper.
 
 **Principles**
 1. Switches are described by mechanism, never as "model X". Any table mapping switches to named models is reviewed by those groups before it appears anywhere.
