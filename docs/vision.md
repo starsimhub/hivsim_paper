@@ -1,105 +1,78 @@
-# HIVsim paper: vision (v0.5)
+# Decomposing disagreement between HIV models
 
-*Builds on `narrative_draft.md`.*
+*Vision for collaborators. The full introduction draft is in `narrative_draft.md`.*
 
-**Target:** Nature Health (Article). Reach: Nature. Fallback: PNAS.
-**Submit by:** 31 March 2027. **Platform:** Starsim v4.
+**Target:** Nature Health. **Submission:** by 31 March 2027.
 
-## Problem
+## Why
 
-Calibrated HIV models agree on what is observed and diverge on the unobserved quantities that policy depends on. In Zimbabwe they attributed 30–65% of transmission to undiagnosed people (Bansi-Matharu 2025), and 35–64% of HIV deaths fell among people on ART (Bansi-Matharu 2026). This is equifinality: calibration targets constrain only a few combinations of inputs, so many parameter sets and structures fit equally well. Isolating assumptions one at a time is the only way to explain a divergence, and today it is very costly because each assumption is embedded in its own codebase.
+Calibrated HIV models agree closely on what is observed (population size, prevalence, numbers diagnosed and on ART). They diverge on the unobserved quantities that policy depends on. In the MIHPSA comparison, Malawi estimates of the share of 2024 transmissions from undiagnosed people ranged from 33% to 75% (Bansi-Matharu et al., 2025). A later analysis found that 35–64% of HIV deaths occurred among people on ART, depending on the model (Bansi-Matharu et al., 2026).
 
-## Idea
+This is equifinality. Calibration targets constrain only a few combinations of inputs, so many parameter sets and structures fit the data equally well while implying different counterfactuals. The usual responses are:
+- propagating structural uncertainty;
+- testing whether it changes the decision;
+- collecting data that target the disputed quantities.
 
-Make model differences **decomposable**, not just describable.
+All of these are valuable, but none of them explains the divergence. Isolating assumptions one at a time can (Hontelez et al., 2013), but it is costly today because each assumption is embedded in its own independently maintained codebase.
 
-- **Re-express each model** in a common framework, as interchangeable components.
-- **Substitute components one at a time** from model A to model B, and record each output at every step.
-- **Check the endpoint.** The full hybrid *is* model B and must reproduce B's original results. This verifies the re-expression, and guarantees that the steps sum to the total gap.
-- **Report order-dependence; don't hide it.** Components interact, so a component's contribution depends on when it is swapped. That is inherent: with many components there is no order-free answer to compute. We report each contribution across several orderings (forward A→B, reverse B→A, and a sample of orderings where compute allows), and flag the components whose contribution is order-sensitive. Those are the interacting assumptions, which is a finding in itself.
-- **Use common random numbers** (native to Starsim), so the change from one swap isn't lost in simulation noise.
+## What we propose
 
-## Recalibration: the hard part
+We want to make model differences **decomposable**, not just describable.
 
-Ideally every hybrid would be recalibrated, and what it takes to restore fit would be informative in its own right. If A with one of B's components only fits when β moves to 0.99, then the data are telling us that component is tightly constrained. Full recalibration of every hybrid is not feasible, so we propose three tiers:
+1. **Re-express** each model in a common modular framework (HIVsim on Starsim v4) as a set of interchangeable components. These cover demography, partnership formation and mixing, natural history and infectiousness, the testing and treatment cascade, interventions, and calibrated parameters.
+2. **Substitute.** Start from model A and replace its components one at a time with model B's, recording each policy-relevant output after every swap.
+3. **Verify at the endpoint.** Once every component has been swapped, the hybrid *is* model B and must reproduce B's original results. This tests the re-expression, and guarantees that the stepwise changes add up to the full gap.
+4. **Report order-dependence.** Components interact, so a swap's contribution depends on when it happens. We report contributions across several orderings, and flag the components whose effect is order-sensitive. These mark where assumptions interact.
+5. **Control noise.** Common random numbers keep the small differences between hybrids from being lost in stochastic noise.
 
-| Tier | What | Status |
+## Recalibration
+
+In principle every hybrid would be recalibrated, and what it takes to restore the fit would be informative in itself. If model A with one of B's components only fits when transmission probability shifts substantially, then the data constrain that component tightly. Full recalibration of every hybrid is not feasible, so we use three tiers:
+
+1. **Uncalibrated path.** Components, including calibrated parameter sets, are swapped without refitting. The endpoint identity holds exactly.
+2. **Compensated path.** At each step, a small parameter set common to all models is refitted to the same targets. The compensation needed is recorded as a measure of how strongly the data constrain each component.
+3. **Full recalibration.** Discussed as the ideal; not attempted.
+
+## Models and setting
+
+| Model | Type | Transmission attribution |
 |---|---|---|
-| 1. Uncalibrated path | Swap components, including the calibrated parameter set, without refitting. The endpoint identity holds exactly. | core |
-| 2. Compensated path | At each step, refit a small fixed set of compensating parameters (e.g. β plus one or two others) to the same targets. Record the **compensation needed** as a diagnostic of how strongly the data constrain each component. | proposed core; a low-dimensional fit per hybrid is cheap |
-| 3. Full recalibration | Refit every free parameter of every hybrid. | out of scope; discussed as the ideal |
+| HIVsim | agent-based, structured sexual network | tracked source partner |
+| EMOD-HIV | agent-based, partnership network | tracked source partner |
+| Optima HIV | compartmental, mixing between population groups | inferred |
 
-Tier 2 turns the hard problem into a measurement. The question becomes not only what each component contributes to the gap, but also how much the data push back when it is swapped.
+The setting is **Malawi**, where both EMOD and Optima took part in MIHPSA. HIVsim will be calibrated to the same data.
 
-## Demonstration
+The three models give three substitution paths:
+- **EMOD ↔ Optima** decomposes a published gap directly.
+- **HIVsim ↔ EMOD** compares two agent-based network models.
+- **HIVsim ↔ Optima** includes the change of modelling paradigm itself (network vs compartmental mixing). Starsim v4 can run a single model specification either way.
 
-**Models.** We are authors on all three.
+## Outputs
 
-| Model | Type | Notes |
-|---|---|---|
-| HIVsim | agent-based (ABM) | structured sexual network; tracks the source of each infection |
-| EMOD-HIV | ABM | partnership network; tracks the source of each infection |
-| Optima HIV | compartmental | mixing between groups; attribution inferred |
+- Share of transmission from undiagnosed people, and from each other cascade stage.
+- Share of HIV deaths among people on ART.
+- HIV incidence.
+- The ranking of at least one pair of interventions (for example, testing vs retention), to test whether the gaps matter for decisions.
 
-**Pairs.** There are three paths: HIVsim↔Optima, HIVsim↔EMOD and EMOD↔Optima. The EMOD↔Optima path decomposes a gap from published MIHPSA results directly. The two ABM↔compartmental paths include the change of paradigm itself (the network vs mixing swap, using the v4 solver; we cite Cliff's paper).
+## Planned results
 
-**Setting: Malawi** (my call). It is the only MIHPSA country where both EMOD and Optima ran. It needs a new HIVsim Malawi calibration.
+1. **Verification.** HIVsim fits Malawi, and the re-expressions of EMOD and Optima reproduce their originals within pre-agreed tolerances.
+2. **Decomposition.** For each path and output: each component's contribution across orderings, and which components interact.
+3. **Compensation.** Which components the data constrain, and which they leave free.
+4. **Decision relevance.** Whether intervention rankings change along any path.
+5. **Cost.** The effort needed to re-express a model and run the decomposition, compared with building models stepwise.
 
-**Components.** More than 6 are expected; the list is finalised at M1. The draft groups are:
-- output definition (attribution method);
-- demography;
-- partnership formation;
-- mixing;
-- risk heterogeneity;
-- sex work;
-- condoms;
-- VMMC;
-- transmission (per act or per partnership);
-- natural history (stages, CD4);
-- infectiousness on and off ART;
-- mortality;
-- testing;
-- linkage;
-- ART initiation;
-- interruption and re-engagement;
-- viral suppression;
-- PMTCT;
-- PrEP;
-- time step / solver;
-- calibrated parameters.
+## Principles
 
-**Outputs:**
-- share of transmission from undiagnosed people;
-- share of HIV deaths on ART;
-- incidence;
-- one intervention ranking (to test decision relevance).
+- Each original model remains the authoritative version, and a re-expression must reproduce it.
+- The decomposition explains differences between models; it does not rank them.
+- Models beyond these three are re-expressed only with their teams taking part.
+- All code, re-expressions and outputs will be open.
 
-## Results
+## Questions for discussion
 
-- **R1. Verification.** HIVsim fits Malawi; the v4 re-expressions of Optima and EMOD reproduce their originals within pre-agreed tolerances.
-- **R2. Decomposition.** For each of the three pairs and each output: component contributions across orderings, and which components are order-sensitive.
-- **R3. Compensation.** The tier-2 compensation each swap requires: which components the data constrain, and which they don't.
-- **R4. Decision relevance.** Does the intervention ranking change along any path?
-- **R5. Effort.** What it cost to re-express and decompose, compared with the stepwise approach (Hontelez 2013).
-
-## Claims and non-claims
-
-| We claim | We do not claim |
-|---|---|
-| Model differences can be decomposed along verified substitution paths | An order-free attribution |
-| Re-expressions can be verified against originals, and were verified for Optima and EMOD | That a common framework makes models equivalent without verification |
-| The compensation each swap needs shows which components the data constrain | Full recalibration of hybrids |
-| For three models in Malawi, we quantify what drives the gaps in policy-relevant outputs | That this generalises to every model or setting |
-
-## Open questions
-
-1. **AI's role.** Recommended: agent-assisted re-expression from each model's code and docs, verified against the original, with effort logged (R5).
-2. **The compensating parameter set for tier 2.** It must be common across models: β, plus what else?
-3. **Feasibility of the EMOD re-expression.** It is the largest model and the biggest risk. The fallback is a partial path: EMOD components swapped into HIVsim, with no endpoint test.
-
-## Out of scope
-
-- A multi-model plugin.
-- Re-expressing models from teams who aren't involved.
-- The lingua franca framework itself (Cliff's paper).
-- A standalone model description.
+1. Which components, and at what granularity?
+2. Which parameters form the common compensating set, so that they mean the same thing in all three models?
+3. What verification tolerances should each output have?
+4. Should AI agents assist the re-expressions, with the effort measured and reported?
