@@ -1,4 +1,4 @@
-# HIVsim paper: project plan (v0.4)
+# HIVsim paper: project plan (v0.5)
 
 *For Robyn, Daniel and Cliff. Read `vision.md` first; the full intro is in `narrative_draft.md`.*
 
@@ -6,55 +6,68 @@
 
 | Milestone | Date | Definition of done |
 |---|---|---|
-| **M1 Scope locked** | Fri 6 Nov | Component list and interfaces agreed; outputs agreed; recalibration design and AI role decided; Optima verification tolerances set; issues created |
-| **M2 Interim deliverable** | Fri 11 Dec | Optima in v4 passes verification for at least one output; first full substitution path (one ordering) for one output; narrative draft; draft figures |
-| **M3 Full draft** | Fri 19 Feb | Full 2^k decomposition for all outputs; decision-relevance result; full manuscript |
+| **M1 Scope locked** | Fri 6 Nov | Component list and interfaces; outputs; tolerances; compensating parameter set; ordering protocol; AI role; issues created |
+| **M2 Interim deliverable** | Fri 11 Dec | HIVsim Malawi calibrated; Optima-v4 verified on ≥1 output; first HIVsim↔Optima path (tier 1) for one output; tier-2 prototype; EMOD reference outputs and a re-expression plan; narrative draft; draft figures |
+| **EMOD gate** | Fri 22 Jan | EMOD-v4 verified, or we switch to the fallback (EMOD components in HIVsim, no endpoint test) |
+| **M3 Full draft** | Fri 19 Feb | All three paths for all outputs, tiers 1 and 2; decision relevance; effort; full manuscript |
 | **M4 Submitted** | Wed 31 Mar | Co-author round (22 Feb – 19 Mar) done; submitted |
 
-Sprint 1 runs 26 Oct – 11 Dec (M1, M2). Sprint 2 runs 4 Jan – 19 Feb (M3). The Nature Health presubmission enquiry goes out in Sprint 2, week 1.
+Sprint 1 runs 26 Oct – 11 Dec. Sprint 2 runs 4 Jan – 19 Feb. The Nature Health presubmission enquiry goes out in Sprint 2, week 1.
 
 ## People
 
 | | Time | This paper | Other |
 |---|---|---|---|
-| Robyn | 50% | lead | — |
-| Daniel | 25% | ~2 h/wk: review the component interfaces and the network/cascade components; possible second model pair (EMOD-like) | CE-under-shocks paper (Eswatini), ~8 h/wk |
-| Cliff | 10% | v4: component interfaces, solver as a component, CRN across hybrids; cross-citation | lingua franca paper |
+| Robyn | 50% | lead; HIVsim Malawi; Optima re-expression; decomposition engine; writing | — |
+| Daniel | 25% | **EMOD:** original Malawi reference runs, guiding the re-expression, verification, plus reviewing the components | CE-under-shocks paper (Eswatini) |
+| Cliff | 10% | v4: component interfaces, solver as a component, CRN across hybrids, tier-2 fitting; cross-citation | lingua franca paper |
+
+**Daniel's split needs a decision.** With EMOD in scope, ~2 h/wk is too little; EMOD probably needs ~4–5 h/wk, which pushes the CE paper back by about a month. Options:
+- accept the slip;
+- or have agents do most of the EMOD re-expression, with Daniel reviewing.
 
 ## Workstreams
 
 | Workstream | What it covers | Lead |
 |---|---|---|
-| **Narrative** | Intro (drafted), results outline, figure list, claims; references | Robyn |
-| **Components** | Define the component boundaries and shared interfaces in HIVsim v4 so each one can be swapped; one module or option per component per model | Robyn, with Cliff and Daniel reviewing |
-| **Optima re-expression** | Optima HIV Zimbabwe in v4 as components; verified against the original Optima run | Robyn (+ agents) |
-| **Decomposition engine** | Hybrid builder (pick a component from A or B), 2^k runner with CRN, Shapley attribution and interactions, endpoint check | Robyn, with Cliff reviewing |
-| **Analysis** | Outputs, decomposition, decision relevance, figures | Robyn |
-| **AI harness** | Depends on the M1 decision: agent-assisted re-expression with logged effort (recommended) | Robyn |
-| **Collaboration** | Optima team informed; invitations for future model pairs; co-author round | Robyn |
-| **CE paper** | Costing and DALY analyzer in stisim; Eswatini scenarios; manuscript | Daniel |
+| Narrative | intro (drafted), results outline, figures, claims, references | Robyn |
+| Components | component list, shared interfaces in HIVsim v4, HIVsim's own components behind them | Robyn, with Cliff and Daniel reviewing |
+| HIVsim Malawi | data, calibration, validation | Robyn |
+| Optima re-expression | Optima HIV Malawi in v4, verified against the original | Robyn (+ agents) |
+| EMOD re-expression | EMOD-HIV Malawi in v4, verified against the original | Daniel (+ agents) |
+| Decomposition engine | hybrid builder, path runner with CRN, ordering protocol, tier-2 compensation | Robyn, with Cliff reviewing |
+| Analysis | paths, contributions across orderings, compensation, decision relevance, figures | Robyn |
+| AI / effort | agent-assisted re-expression with effort logged (if confirmed at M1) | Robyn |
+| CE paper | costing and DALY analyzer, Eswatini scenarios, manuscript | Daniel |
 
 ## Sprint 1 by week
 
 | Wk | Dates | Robyn (+ agents) | Daniel | Cliff |
 |---|---|---|---|---|
-| 1 | 26–30 Oct | Results outline + figure list; draft component list + interface sketch; get the original Optima HIV Zimbabwe project running; list outputs | CE scoping doc | Review component sketch for v4 fit |
-| 2 | 2–6 Nov | **M1:** components and interfaces final; recalibration design; AI role decided; verification tolerances; issues created | Review components; costing analyzer design | Solver-as-component and CRN plan |
-| 3 | 9–13 Nov | Optima in v4: demography, natural history, cascade components (agent-assisted, effort logged) | Costing analyzer build | — |
-| 4 | 16–20 Nov | Optima in v4: mixing, interventions, parameters; first verification pass | Costing analyzer tests | Unblock v4 issues |
-| 5 | 23–27 Nov | Port the attribution analyzer (all 3 methods; needed to compare like with like); hybrid builder; HIVsim components behind the same interfaces | Eswatini cost inputs | Review hybrid builder |
-| 6 | 30 Nov–4 Dec | Verification within tolerance on ≥1 output; first substitution path, one output, one ordering | Review network/cascade components | — |
-| 7 | 7–11 Dec | **M2:** draft figures, narrative draft, Sprint 2 plan | Costing PR merged; scenarios specified | Interim review |
+| 1 | 26–30 Oct | Results outline; draft component list + interfaces; original Optima HIV Malawi running; Malawi data assembled | EMOD Malawi original: rerun and export reference outputs; CE scoping | Review the interface sketch |
+| 2 | 2–6 Nov | **M1:** components, outputs, tolerances, compensating set, ordering protocol, AI role; HIVsim Malawi calibration pilot | Review components; map the EMOD Malawi config onto components | Solver-as-component, CRN, tier-2 approach |
+| 3 | 9–13 Nov | Optima-v4 components, batch 1; HIVsim Malawi calibration (VM) | EMOD component mapping, continued | — |
+| 4 | 16–20 Nov | Optima-v4 batch 2 + first verification pass; port the attribution analyzer | Costing analyzer build | Unblock v4 issues |
+| 5 | 23–27 Nov | Hybrid builder + path runner (CRN); HIVsim components behind the interfaces | EMOD re-expression plan (what to build, in what order) | Review hybrid builder |
+| 6 | 30 Nov–4 Dec | First HIVsim↔Optima path, tier 1, one output; tier-2 prototype on a few steps | Costing analyzer tests | — |
+| 7 | 7–11 Dec | **M2:** draft figures, narrative draft, Sprint 2 plan | M2 review | M2 review |
 
-Sprint 2 (planned at the M2 review): full verification, the 2^k runs on a VM, Shapley decomposition, decision relevance, R4 effort analysis, the full draft, and a reproducibility pass (fresh clone → all plots from `results/`).
+## Sprint 2 outline (refined at M2)
+
+| Wk | Focus |
+|---|---|
+| 1–3 | EMOD-v4 re-expression and verification (**gate 22 Jan**); presubmission enquiry |
+| 3–5 | All three paths × outputs × orderings, tiers 1 and 2, on a VM |
+| 5 | Decision relevance; effort analysis |
+| 6–7 | Full draft; reproducibility pass (fresh clone → all plots from `results/`) |
 
 ## GitHub project board
 
-The board is a single Projects (v2) board across repos. Issues live where their code lives:
+The board is a single Projects (v2) board spanning several repos. Each issue lives in the repo whose code or text it concerns:
 
-| Repo | What its issues cover |
+| Repo | Issues for |
 |---|---|
-| `hivsim_paper` | narrative, analysis, figures, collaboration, Optima re-expression |
+| `hivsim_paper` | narrative, analysis, figures, the Optima and EMOD re-expressions |
 | `stisim` | HIVsim components, the attribution analyzer, the costing analyzer |
 | `starsim` | engine work: interfaces, solver, CRN |
 
@@ -63,52 +76,49 @@ The board is a single Projects (v2) board across repos. Issues live where their 
 | Field | Values |
 |---|---|
 | Status | Backlog / Ready / In progress / In review / Done |
-| Sprint | weekly iteration (S1W1 … S2W7) |
-| Workstream | the eight workstreams above |
-| Milestone | M1–M4 |
-| Size | S (<½ day) / M (1–2 days) / L (split it) |
+| Sprint | weekly iteration |
+| Workstream | the workstreams above |
+| Milestone | M1–M4, plus the EMOD gate |
+| Size | S / M / L (split L) |
 
-**Views**
-- Sprint board (this iteration, grouped by Status)
-- By workstream
-- Roadmap (timeline by Milestone)
-- Mine
+**Views:** this sprint's board; by workstream; a roadmap timeline; issues assigned to me.
 
-**Conventions**
-- Issue titles start with a verb.
-- Every issue states its acceptance criteria and links the result (R1–R4) it serves.
+**Conventions:** issue titles start with a verb. Each issue states its acceptance criteria and links the result (R1–R5) it serves.
 
 ## Starter issues (Sprint 1)
 
 | # | Issue | Workstream | Milestone | Owner |
 |---|---|---|---|---|
 | 1 | Draft results outline and figure list | Narrative | M1 | R |
-| 2 | Add missing references (Axtell 1996, Kuntz 2011, van Ballegooijen 2011) | Narrative | M1 | R |
+| 2 | Add missing refs (Axtell 1996, Kuntz 2011, van Ballegooijen 2011) | Narrative | M1 | R |
 | 3 | Draft component list and shared interfaces | Components | M1 | R, C, D |
 | 4 | Choose outputs and harmonised definitions | Analysis | M1 | R |
-| 5 | Decide recalibration design for hybrids | Decomposition engine | M1 | R |
-| 6 | Decide AI harness role | AI harness | M1 | R |
-| 7 | Run original Optima HIV Zimbabwe; save reference outputs to `results/` | Optima re-expression | M1 | R |
-| 8 | Set verification tolerances per output | Optima re-expression | M1 | R |
-| 9 | Re-express Optima components in v4 (one issue per component, created at M1) | Optima re-expression | M2 | R |
-| 10 | Verify Optima-v4 against the original | Optima re-expression | M2 | R |
-| 11 | Port cascade attribution analyzer (tracked, cascade-weighted, counterfactual) | Components | M2 | R |
-| 12 | Put HIVsim components behind the shared interfaces | Components | M2 | R |
-| 13 | Build hybrid builder + single-path runner with CRN | Decomposition engine | M2 | R |
-| 14 | Run first substitution path for one output | Analysis | M2 | R |
-| 15 | Log re-expression effort (hours, agent cost, corrections) | AI harness | M2 | R |
-| 16 | Notify Optima team; shortlist future collaborators | Collaboration | M2 | R |
-| 17 | Write CE scoping doc | CE paper | — | D |
-| 18 | Build costing and DALY analyzer in stisim | CE paper | — | D |
-| 19 | Assemble Eswatini cost inputs | CE paper | — | D |
+| 5 | Define ordering protocol (forward, reverse, sampled) | Decomposition | M1 | R |
+| 6 | Choose tier-2 compensating parameter set | Decomposition | M1 | R, C |
+| 7 | Set verification tolerances per output | Optima / EMOD | M1 | R, D |
+| 8 | Decide AI role | AI / effort | M1 | R |
+| 9 | Run original Optima HIV Malawi; save reference outputs | Optima | M1 | R |
+| 10 | Rerun EMOD Malawi; export reference outputs | EMOD | M1 | D |
+| 11 | Assemble Malawi data and calibrate HIVsim Malawi | HIVsim Malawi | M2 | R |
+| 12 | Re-express Optima components in v4 (one issue per component, created at M1) | Optima | M2 | R |
+| 13 | Verify Optima-v4 against the original | Optima | M2 | R |
+| 14 | Map EMOD Malawi config onto components; write the re-expression plan | EMOD | M2 | D |
+| 15 | Port cascade attribution analyzer (3 methods) | Components | M2 | R |
+| 16 | Put HIVsim components behind shared interfaces | Components | M2 | R |
+| 17 | Build hybrid builder + path runner with CRN | Decomposition | M2 | R |
+| 18 | Prototype tier-2 compensation | Decomposition | M2 | R, C |
+| 19 | Run first HIVsim↔Optima path (tier 1, one output) | Analysis | M2 | R |
+| 20 | Log re-expression effort | AI / effort | M2 | R |
+| 21 | CE scoping doc; costing and DALY analyzer | CE paper | — | D |
 
 ## Risks
 
 | Risk | Mitigation |
 |---|---|
-| Optima's original can't be reproduced in v4 within tolerance | diagnose and report the cause; the endpoint test exists for exactly this |
-| The network ↔ mixing swap is ill-defined | treat the paradigm (solver) as its own component; define the swap at M1 with Cliff |
-| 2^k runs × uncertainty are expensive | k ≤ 6; a VM; CRN keeps replicate counts low |
-| Recalibration choice weakens the additivity claim | decide at M1; report both if needed |
-| Overlap with Cliff's paper | the paper applies the framework, and Cliff reviews; cross-cite |
-| CE paper slips | the flagship doesn't depend on it |
+| The EMOD re-expression is too large | do agents' work first and get Daniel's review early; gate on 22 Jan; fallback is a partial path |
+| A re-expression can't reach tolerance | diagnose and report the cause; that's what the endpoint test is for |
+| HIVsim Malawi calibration takes too long | start in week 1; reuse the Zimbabwe/Zambia priors and workflow |
+| Tier-2 fits are unstable | keep the compensating set small; fall back to tier 1 only |
+| Many components × orderings × three pairs gets expensive | a VM; CRN; few replicates; sample orderings rather than enumerate |
+| Overlap with Cliff's paper | this paper applies the framework; Cliff reviews; cross-cite |
+| The CE paper slips | the flagship paper doesn't depend on it |

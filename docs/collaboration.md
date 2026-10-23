@@ -2,7 +2,7 @@
 
 **Framing:** validated models agree on what is observed and disagree on what isn't. Decomposition explains which components drive a gap. It ranks no model. Each original model stays the authoritative version, and re-expressions must reproduce it.
 
-**Model pairs:** the first pair is HIVsim and Optima (ours). Any other model is re-expressed only with its team taking part, and the team verifies the re-expression and co-authors the paper.
+**Models:** HIVsim, EMOD and Optima. We are authors on all three. Any other model is re-expressed only with its team taking part: that team verifies the re-expression and co-authors the paper. Keep the EMOD and Optima teams' wider groups informed from the start.
 
 **Principles**
 1. Switches are described by mechanism, never as "model X". Any table mapping switches to named models is reviewed by those groups before it appears anywhere.
