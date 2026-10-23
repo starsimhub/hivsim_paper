@@ -111,6 +111,20 @@ The board is a single Projects (v2) board spanning several repos. Each issue liv
 | 20 | Log re-expression effort | AI / effort | M2 | R |
 | 21 | CE scoping doc; costing and DALY analyzer | CE paper | — | D |
 
+## Collaboration
+
+- Each original model remains the authoritative version, and a re-expression must reproduce it. Decomposition ranks no model, and nothing we write uses "winner" language.
+- Keep the wider EMOD and Optima groups informed from the start.
+- Any other model is re-expressed only with its team taking part: they verify the re-expression and co-author the paper.
+- Anyone whose published results we compare sees the comparison before submission.
+
+## Venue notes
+
+- **Nature Health:** Article of 4,000 words and 6 display items; presubmission enquiries accepted.
+- **Nature Medicine:** does not take presubmission enquiries.
+- **Code:** goes to reviewers; deposit with a DOI on publication.
+- **LLM use:** disclosed in Methods.
+
 ## Risks
 
 | Risk | Mitigation |
