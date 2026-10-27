@@ -9,6 +9,12 @@ Two parts:
 
 **Decided (27 Oct):** two separate checks. *Fidelity:* each rebuilt model matches its original, within tolerance. *Endpoint identity:* a fully swapped hybrid equals the rebuilt target model exactly.
 
+**Decided (27 Oct): the decision scenario is ART treatment interruption.**
+- It is defined at interface level from 2026, so every hybrid implements it through its own cascade component.
+- It makes interruption and re-engagement central components in P4.
+- HIVsim currently has no explicit re-engagement rate. Re-engagement only happens through coverage correction, so this needs building.
+- MIHPSA Malawi gives a published comparison point: 8.4–20.1% of transmission from people who interrupted treatment.
+
 **Decided (27 Oct): attribution is computed at the path endpoints only.**
 - Each endpoint gets the attribution method its own model used.
 - Measurement is reported as one explicit step, so the share of the gap that is purely definitional is a result in its own right.
