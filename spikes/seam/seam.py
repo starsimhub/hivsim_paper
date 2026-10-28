@@ -26,7 +26,7 @@ def make_cascade(hiv):
         loss      = usvl + svl + care >> lost @ ss.peryear(0.05),
         returning = lost >> care @ ss.peryear(0.2),
         failure   = svl >> usvl @ ss.peryear(0.05),
-        initiate  = ss.Transition(care, svl), # Undriven: moved by the number-on-ART target (see Seam). FRICTION 1: a split with p= can't be undriven, so the 90/10 split into svl/usvl is the seam's code
+        initiate  = ss.Transition(care, [svl, usvl], p=[0.9, None], rate=0), # Moved only by the number-on-ART target (see Seam), each to svl or usvl in its shares
         first = 'none', name = 'cascade',
     )
     return cascade
@@ -38,7 +38,6 @@ class Seam(ss.Connector):
         super().__init__(**kwargs)
         self.numtx = numtx # Number to have on ART, by year (Optima's numtx)
         self.lag = []      # Steps between a cascade move and the natural history hearing of it
-        self.supp = ss.bernoulli(p=0.9) # Share of initiators who suppress (Optima's treatvs)
 
     def step(self):
         sim = self.sim
@@ -54,9 +53,7 @@ class Seam(ss.Connector):
             eligible = cas.care.uids
             order = np.argsort(hiv.cd4[eligible], kind='stable')
             chosen = eligible[order[:n]]
-            supp = self.supp.filter(chosen)
-            cas.move(supp, cas.svl)
-            cas.move(chosen.remove(supp), cas.usvl)
+            cas.move(chosen, cas.initiate) # Along the transition: split in its shares, and counted in its flow
             self.sync(hiv, cas) # At once, for the moves made here
         return
 
@@ -93,3 +90,9 @@ print('in cascade = infected:', (cas.undx | cas.dx | cas.care | cas.lost | cas.u
 print('hiv results with art:', [k for k in sim.results.hiv.keys() if 'art' in k][:8])
 print('initiate flow total:', r.cascade.initiate.values.sum(), '| on ART at end:', (cas.usvl | cas.svl).count())
 print('loss flow total:', r.cascade.loss.values.sum(), '| failure:', r.cascade.failure.values.sum())
+a = set((cas.usvl | cas.svl).uids.tolist()); b = set(hiv.on_art.uids.tolist())
+print('DIAG on ART only in cascade:', len(a - b), '| only in hiv:', len(b - a))
+cs = set(cas.svl.uids.tolist()); hs = set(hiv.on_effective_art.uids.tolist())
+print('DIAG svl only cascade:', len(cs - hs), '| only hiv:', len(hs - cs))
+seam = sim.connectors.seam; seam.sync(hiv, cas)
+print('DIAG after one more sync:', set((cas.usvl | cas.svl).uids.tolist()) == set(hiv.on_art.uids.tolist()), set(cas.svl.uids.tolist()) == set(hiv.on_effective_art.uids.tolist()))
