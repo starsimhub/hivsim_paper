@@ -27,7 +27,7 @@ These are left for January:
 
 | Risk | Fallback |
 |---|---|
-| Common random numbers don't reduce variance across swaps (`SexualNet` isn't CRN-safe when people are born or die) | more seeds; request a CRN-safe partnership network in Starsim |
+| Common random numbers don't reduce variance across swaps (`SexualNet` isn't CRN-safe when people are born or die); probably minor, since HIV outputs should vary little between runs | more seeds or agents; request a CRN-safe partnership network in Starsim |
 | The EMOD′ rebuild can't reach tolerance | report the diagnosed cause; partial path (EMOD components in HIVsim, no endpoint test) |
 | v4 API changes mid-rebuild | pin a commit; re-pin deliberately and rerun the endpoint test |
-| MIHPSA Optima turns out to be legacy Optima HIV, not Atomica | hand-rebuild; the Atomica importer helps only partly |
+| ~~MIHPSA Optima turns out to be legacy Optima HIV, not Atomica~~ Confirmed 28 Oct: legacy Optima HIV ([optimamodel/optima](https://github.com/optimamodel/optima)) | hand rebuild (declared, for its ODE form); Malawi files from Rowan |

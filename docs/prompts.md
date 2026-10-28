@@ -86,36 +86,45 @@ Extract all the calibration targets and adjustable parameters from the paper. Us
 List out the atomic components of each model and design the sequential swapping.
 ```
 
-## Starsim v4 notes (reviewed 27 Oct, `origin/v4-oct27` = `v4` + 1 commit)
+## Starsim v4 notes (reviewed 28 Oct, `origin/v4` = 1ce69a13)
 
-- **Base.** Build on `origin/v4`, pinned to a commit, and rerun the endpoint-identity test on every re-pin. The v4-rs work is already in it, under Cliff's naming. Don't merge local `v4-rs`. The `stisim-v4` port targets the old v4-rs API (`target=`, `ss.Capacity`) and needs re-porting.
-- **Interfaces.** Starsim doesn't enforce module interfaces (no reads/writes declarations). The P4 interface contract is our own layer, enforced by our own tests.
+- **Base.**
+  - Build on `origin/v4`, pinned to a commit, and rerun the endpoint-identity test on every re-pin.
+  - Since 27 Oct `v4` has Rust kernels (same numbers as Numba, bit for bit; no effect on agent runs) and a reorg: `ss.interop` is now `ss.io`, with `ss.import_from()`/`ss.export_to()`.
+  - It needs `sciris>=3.5` (with 3.4 or older, `ss.Sim` crashes reading its own results), although `pyproject.toml` still says `>=3.2.8`.
+  - Cliff's STIsim port is stisim `origin/v4` (HIVsim is the `hivsim` package in the same repo). It is written as code (`ss.Infection`), not declared: see Performance.
+- **Which models need the declared form.**
+  - Only Optima′: it is the one verified as an ODE (against the original) and as agents (against its own ODE), and the declared form gives both from one model.
+  - HIVsim and EMOD′ can be written as code. EMOD is individual-based anyway.
+  - What every path needs is declared and coded components working together behind the P4 interfaces in one agent sim (e.g. Optima′'s declared cascade on HIVsim's coded natural history). This is untested, so spike it before sprint 3.
+  - Optima is legacy Optima HIV ([optimamodel/optima](https://github.com/optimamodel/optima)), not Atomica, so the Atomica importer doesn't apply: Optima′ is a hand rebuild.
+- **Interfaces.** Starsim doesn't enforce module interfaces (no reads/writes declarations). The P4 interface contract is our own layer, enforced by our own tests. State it in agent terms (e.g. CD4 category and ART status per person, `start_art(uids)`, a death hazard), so declared and coded components can each implement it.
 - **ODE ↔ ABM.**
-  - Works for declared models without networks. `SexualNet` has no compartmental form, and per-agent `ss.attr`, clocks and queues are agents-only.
-  - So Optima′ should be built from mixing pools or `ss.contacts`, with CD4 × cascade as declared states.
+  - Declared models without individual networks run under every solver.
+  - `SexualNet` now has a compartmental approximation (partner-change rates between groups), marked as approximate.
+  - Clocks, `ss.attr`, queues, `delay=`, and `.count`/`.since` of events are agents only, as is any coded module that keeps a value per person (`define_states()`).
+  - Optima′ should use mixing pools or `ss.contacts`, with CD4 × cascade as declared states.
   - Agents take whole time steps, so the ABM-vs-ODE check needs a dt study, not a tight tolerance.
-- **CRN (highest risk).**
-  - `SexualNet` isn't CRN-safe when people are born or die, so any swap that changes mortality rewires the network.
-  - Cliff measured little variance reduction for declared-agent diseases.
-  - Draw keys follow transition order, which changed in the latest commit.
-  - Endpoint identity can still be exact if names, graph and module order match; check with `sim.hash().model` and `ss.diff`.
-  - **Measure paired vs independent variance on one real swap before relying on CRN.**
-- **Spec and diff.** `to_spec`, `to_code`, `hash` and `ss.diff` exist; there is no `from_spec`. Code-written modules show up only as class plus parameters, so make swappable components declared where possible.
+- **CRN.** Probably not a major issue: HIV outputs should vary little between runs at a reasonable population size. Still worth the cheap check in sprint 3 (paired vs independent variance on one real swap). `SexualNet` isn't CRN-safe when people are born or die, and in the declared engine draw keys follow the transitions and rounds of moves, so engine changes alter results between pins.
+- **Endpoint identity.** `sim.hash()`, `ss.diff()`, `to_spec()` and `to_code()` were removed on 27 Oct. Check identity by comparing results: every result array equal, same seed and module order.
 - **HIV pieces.**
   - Directional `ss.peract` is exact.
   - Modifiers multiply the hazard, not the probability (about a 1% difference from EMOD's convention for acute-phase multipliers).
-  - `SexualNet` has one partnership type per network.
-  - There is no stock target for ART numbers and no `ss.program()`.
-  - The Atomica `hiv_dyn` importer matches Atomica to 1e-6 but doesn't translate junctions, transfers or interactions.
+  - `SexualNet` has one partnership type per network; STIsim's `StructuredSexual` has several.
+  - The stock ART target (`target=`) and `ss.Resource` were removed on 20 Oct, and there is no `ss.program()`. A target is `deliver=` or `capacity=` as a function of the sim.
+  - A coded module's parameters can't be targeted by `ss.modify`/`ss.change`, only its `rel_sus` and `rel_trans`.
+  - Starsim 3's `ss.Calibration` is gone, replaced by `sim.fit()`. Check that the calib plugin (P3) works with it.
   - There is no EMOD importer; it's listed in `v4_design/todo.md`.
+- **Performance** (28 Oct, STIsim gonorrhea, 5,000 agents, 20 years monthly).
+  - Declared: 0.80 s; coded: 0.58 s; the network alone is 0.35 s. So the declared disease costs about twice the coded one, which is why STIsim's diseases are written as code.
+  - The overhead is per-batch Python in the agent engine, not the random draws (the same in number and cost), and is not fixed by the Rust kernels. Optima′ as agents would use mixing pools, a different (faster) transmission path, so measure it on an Optima-like model before planning engine work for the paper.
 - **Ask Cliff:**
   - Is the EMOD importer planned?
-  - Will a stock ART target or `ss.program()` come back, or does it belong in STIsim?
-  - Is a compartmental form of `SexualNet` coming?
   - Can transition and distribution naming be kept stable, for CRN?
   - Would he consider optional interface declarations?
   - Could we have a frozen API window for the paper?
-- **To confirm:** was MIHPSA Malawi run on legacy Optima HIV or on an Atomica project? If it was legacy Optima, the Atomica importer helps little.
+  - *Answered:* stock ART targets stay in STIsim (removed from Starsim, 20 Oct); `SexualNet` has a compartmental approximation.
+- **Malawi files:** ask Rowan for the Optima Malawi project.
 
 ## Part 2: Record
 
