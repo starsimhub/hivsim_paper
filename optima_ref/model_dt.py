@@ -40,6 +40,9 @@ def model(simpars=None, settings=None, version=None, initpeople=None, initprops=
     simpars         = dcp(simpars)
     tvec            = simpars['tvec']
     dt              = float(simpars['dt'])          # Shorten dt and make absolutely sure it's a float
+    s = 1. # Share of a REF_DT step taken per time step
+    if 'linear' in FIX: # Everything Optima does in a step of REF_DT is read as rate*REF_DT: compute each step at REF_DT, then take dt/REF_DT of the change
+        s, dt = dt/REF_DT, REF_DT
     def lin(r, group): # A rate used as a per-step probability (r*dt): if fixed, the probability over REF_DT is kept for any dt
         return 1.-(1.-minimum(r*REF_DT, 1.))**(dt/REF_DT) if group in FIX else r*dt
     def expp(tau, group): # An exponential stay, 1-exp(-dt/tau): if fixed, the time spent in the state at REF_DT (REF_DT/p, about tau + REF_DT/2) is kept for any dt
@@ -90,7 +93,7 @@ def model(simpars=None, settings=None, version=None, initpeople=None, initprops=
     deathsvl        = simpars['deathsvl']           # Death rate whilst on suppressive ART
     deathusvl       = simpars['deathusvl']          # Death rate whilst on unsuppressive ART
     cd4trans        = array([simpars['cd4transacute'], simpars['cd4transgt500'], simpars['cd4transgt350'], simpars['cd4transgt200'], simpars['cd4transgt50'], simpars['cd4translt50']])
-    backgrounddeath = lin(simpars['death'],'death')           # Background death rates
+    backgrounddeath = lin(simpars['death'],'bgdeath')           # Background death rates
     emiprob         = simpars['propemigrate']*dt    # Emigration probability in a timestep
     background      = backgrounddeath + emiprob     # Background removal through other death and emigration
     relhivdeath     = simpars['hivdeath']           # Relative HIV-related death rates
@@ -184,6 +187,9 @@ def model(simpars=None, settings=None, version=None, initpeople=None, initprops=
 
     # Begin calculation of transmission probabilities -- continued in time loop
     cd4trans *= simpars['transnorm']                    # Normalize CD4 transmission
+    if 'trans' in FIX: # Transmission uses the stock at the start of each step, so a stay of tau contributes h/p (p = 1-exp(-h/tau)) per step h; keep the contribution at REF_DT
+        cd4tau = array([simpars['progacute'], simpars['proggt500'], simpars['proggt350'], simpars['proggt200'], simpars['proggt50'], 1./simpars['deathlt50']])
+        cd4trans *= (REF_DT/(1.-exp(-REF_DT/cd4tau))) / (dt/(1.-exp(-dt/cd4tau)))
     dxfactor = (1.-simpars['effdx'])                    # Include diagnosis efficacy
     efftxunsupp = (1.-simpars['efftxunsupp'])*dxfactor  # Reduction in transmission probability for usVL
     efftxsupp = (1.-simpars['efftxsupp'])*dxfactor      # Reduction in transmission probability for sVL
@@ -960,6 +966,9 @@ def model(simpars=None, settings=None, version=None, initpeople=None, initprops=
                     raw_transitpopbypop[:,allplhiv,:,t+1] += swapaxes(peoplefromto1[allplhiv,:,:],1,2)/dt #annualize
                     raw_transitpopbypop[:,allplhiv,:,t+1] += peoplefromto2[allplhiv,:,:]/dt #annualize
 
+
+            if s != 1.: # Take this step's share of the change built at REF_DT (transitions, births, circumcision, ageing, risk transitions)
+                people[:,:,t+1] = people[:,:,t] + s*(people[:,:,t+1] - people[:,:,t])
 
             ###############################################################################
             ## Reconcile population sizes

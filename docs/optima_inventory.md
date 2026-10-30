@@ -77,20 +77,33 @@ Consequence for P2: a continuous-time ODE re-expression cannot be within 2% of O
 
 ### Making the step explicit (option 1, 30 Oct)
 
-`optima_ref/model_dt.py` is a copy of Optima's `model.py` (2.12.2) with switches (`FIX`) that convert each group of step-dependent rules to a step-independent form that reproduces the calibrated step (`REF_DT = 0.2`). With every switch on, it equals the original at dt = 0.2 (to 3e-8 people). `optima_ref/dt_fix.py` runs the ablations.
+`optima_ref/model_dt.py` is a copy of Optima's `model.py` (2.12.2) with switches (`FIX`) that make the calibrated step (`REF_DT = 0.2`) explicit, and `optima_ref/dt_fix.py` measures them. Every switch is the identity at dt = 0.2 (equal to the original to 3e-8 people). Following Robyn's decision (30 Oct), the comparison covers only years with treatment data, **2000–2020**.
 
-| Group | Rule in Optima | Conversion that reproduces dt = 0.2 |
-|---|---|---|
-| supp | Suppressed at ART start with probability `1-exp(-dt/treatvs)` | Fixed share, `1-exp(-0.2/treatvs)` = 63% |
-| acute, dwell | Exponential stays, `1-exp(-dt/tau)` (CD4 progression, ART recovery, linkage, risk transitions) | Keep the time spent at the calibrated step: rate `(1-exp(-0.2/tau))/0.2`, i.e. a stay of about `tau + 0.1` (acute: 0.35 y, not 0.24) |
-| cascade, death, usvl, age | Rates used as probabilities, `r*dt` (testing, loss and return to care, treatment failure, deaths, CD4 change on unsuppressed ART, ageing) | Keep the survival over the calibrated step: rate `-ln(1-0.2r)/0.2` |
+**The rule that works: read everything Optima does in one 0.2-year step as rate × 0.2.** At a smaller step, each step is built exactly as Optima builds a 0.2-year step (transitions, infections, births and PMTCT diagnosis, circumcision, ageing, risk transitions), and dt/0.2 of the change is taken (`FIX = {'linear'}`). The inputs are Optima's own dt = 0.2 series, interpolated between 0.2-year points (`'inputs'`), because Optima smooths inputs over `int(1/dt)` points, so the series themselves change with the step. Population forcing and the ART and cascade targets act on levels and are applied unchanged.
 
-With all groups on, results converge (dt = 0.02 and 0.01 differ by under 0.2 points). Max difference from the calibrated run in yearly outputs, 2000–2030: PLHIV 1.1%, diagnosed 1.9%, on ART 1.4%, suppressed 1.4%, new infections 3.5% (2018), HIV deaths 3.3% (2030).
+Max difference from the calibrated run at dt = 0.01 (converged: dt = 0.02 differs by < 0.15 points):
 
-Open: the two conversion rules differ (time in state vs survival), with no reason yet why they should. That may mean they are compensating for something else. One candidate already found: switching the project to Optima's newer ageing code (≥ 2.12.0) changes results by 2–7% before 2019 at dt = 0.2.
+| Years | PLHIV | New infections | HIV deaths | Diagnosed | On ART | Suppressed |
+|---|---|---|---|---|---|---|
+| 2000–2019 | 0.7% | 1.2% | 1.4% | 0.8% | 0.4% | 0.3% |
+| 2020 | 0.6% | 2.0% | 2.5% | 0.6% | 0.0% | 0.2% |
+
+The 2020 step (new infections −1.0% in 2019, −2.0% in 2020, and the same beyond) coincides with the cascade proportions being frozen in 2020 (`fixproptx`, `fixpropsupp`). Not yet explained.
+
+What the rule captures, found on the way (`dt_fix.py` keeps the per-group switches):
+
+- **Suppression at ART start** is 63%, the per-step chance `1-exp(-0.2/treatvs)`, with no other route to suppression (`numvlmon` = 0). This is the largest single effect.
+- **Every stage takes at least one step.** Someone leaving a stage partway through a step starts the next one only at the step's end, so a stay of tau lasts 0.2/p ≈ tau + 0.1 y. Acute infection lasts 0.35 y, not 0.24, and CD4 > 500 lasts 1.05 y, not 0.95. At small steps without this, there are 0.70× as many people in acute infection and 0.90× in CD4 > 500 before ART, and people reach CD4 < 50 sooner, so deaths are 7% higher per untreated person.
+- **Competing risks favour death.** Within a step, death comes first and every other move applies only to survivors (probabilities multiplied by `1 - death*dt`).
+- **Ageing can skip a band.** In the old ageing code (project version 2.11.4), people who age into a band can age out of it in the same step.
+- **Rates used as probabilities** (`r*dt`: testing, care, deaths) are already rates under this reading and need no conversion.
+
+Per-group conversions (time in state for exponential stays, survival for `r*dt` rules) got to a similar fit (1.6% new infections, 1.1% deaths, 4.2% on ART), but only with a mix of rules and no reason for the mix. The linear reading explains it: the survival conversion of deaths and ageing was standing in for competing risks and the ageing skip.
+
+**Consequence for Optima′.** Its continuous-time rates are Optima's per-step probabilities at dt = 0.2 divided by 0.2, with Optima's product structure: progression and cascade rates reduced by the chance of dying in the step, direct transitions where Optima allows two moves in one step (diagnosed and progressed, two age bands), the infection probability per 0.2 y divided by 0.2, and suppression at ART start a fixed 63%. Inputs are Optima's dt = 0.2 series. Population forcing and the ART and cascade targets are rules on levels, applied each step.
 
 ### Projections are ill-conditioned (30 Oct)
 
 After 2019, new infections and deaths amplify small differences. In the original model, raising `force` by 0.5% changes new infections by +1.8% in 2015 and +12% in 2030, and deaths by +1.3% and +15%. PLHIV changes by only 0.9% and 2.1%. The likely reason: the number on ART does not respond (+0.3%), so the extra people with HIV stay untreated. By 2030 about 0.15M of 1.22M PLHIV are untreated, and they produce most of the new infections and deaths.
 
-Consequence for P2: "within 2% for every output, 2000–2040" can't be met for new infections and deaths in projection years by any re-expression. A difference of 0.1% in PLHIV becomes about 1.5% in 2030 incidence.
+Consequence for P2: "within 2% for every output, 2000–2040" can't be met for new infections and deaths in projection years by any re-expression. A difference of 0.1% in PLHIV becomes about 1.5% in 2030 incidence. **Decided (Robyn, 30 Oct): compare only over the years with treatment data (2000–2020).** The published MIHPSA projections must have extended treatment beyond 2020 somehow; waiting on Rowan.
