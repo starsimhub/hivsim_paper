@@ -5,16 +5,18 @@ import numpy as np, sciris as sc
 import optima_prime as opp
 
 REFS = Path(__file__).resolve().parents[2] / 'optima_ref' / 'component_refs.obj'
-COMPONENTS = dict(A=('demography', 'natural_history'))
-WINDOWS = dict(A=(1991, 2000)) # Without transmission, people with HIV die out: compare while there are some
+COMPONENTS = dict(A=('demography', 'natural_history'), B=('demography', 'natural_history', 'transmission'), C=('demography', 'natural_history', 'transmission', 'cascade'))
+WINDOWS = dict(A=(1991, 2000), B=(1991, 2020), C=(1991, 2020)) # Without transmission (A), people with HIV die out: compare while there are some
 
-def summarise(people, years):
-    """ Stocks from a (states × pops × years) array """
+def summarise(people, years, inci=None):
+    """ Stocks from a (states × pops × years) array, and new infections per year if given """
     hiv = people[2:]
     out = dict(popsize=people.sum(axis=(0, 1)), plhiv=hiv.sum(axis=(0, 1)))
     for i, k in enumerate(opp.CD4):
         out[f'plhiv_{k}'] = hiv[i::6].sum(axis=(0, 1))
     out['plhiv_15_49'] = None
+    out['diag'] = people[8:].sum(axis=(0, 1)) # Diagnosed: in dx, care, lost, or on ART
+    out['inci'] = inci
     return {k: v for k, v in out.items() if v is not None}
 
 def prime_people(sim, years):
@@ -28,10 +30,19 @@ def prime_people(sim, years):
         out.append(np.asarray(res)[[np.argmin(abs(t - y)) for y in years]].T)
     return np.array(out)
 
+def prime_inci(sim, years):
+    """ Optima′'s new infections per year, in the step that starts at each whole year """
+    r = sim.results.optima
+    flows = [r[k] for k in r.keys() if k.startswith('infection_')]
+    if not flows: return None
+    t = np.array([d.years for d in flows[0].timevec])
+    total = sum(np.asarray(f) for f in flows)
+    return np.array([total[min(np.argmin(abs(t - y)) + 1, len(t) - 1)] for y in years])/sim.pars.dt.years if hasattr(sim.pars.dt, 'years') else None
+
 def gaps(a, b, years, window):
     """ Max difference over the window, as a % of the largest value of the reference in the window """
     sel = (years >= window[0]) & (years <= window[1])
-    return {k: 100*np.max(np.abs(b[k][sel] - a[k][sel]))/np.max(np.abs(a[k][sel])) for k in a}
+    return {k: 100*np.max(np.abs(b[k][sel] - a[k][sel]))/np.max(np.abs(a[k][sel])) for k in a if b.get(k) is not None}
 
 if __name__ == '__main__':
     refs = sc.load(REFS)
@@ -41,11 +52,12 @@ if __name__ == '__main__':
         T = sc.timer()
         sim = opp.make_sim(components=COMPONENTS[name], dt=ref['dt'], end=int(years[-1])).run()
         print(f'Test {name} ({", ".join(COMPONENTS[name])}): Optima′ ran in {T.toc(output=True):.1f} s')
-        o, h = summarise(ref['original']['people'], years), summarise(ref['harness']['people'], years)
-        p = summarise(prime_people(sim, years), years)
+        inci = lambda x: x['inci'].sum(axis=0) if 'inci' in x and 'transmission' in COMPONENTS[name] else None
+        o, h = summarise(ref['original']['people'], years, inci(ref['original'])), summarise(ref['harness']['people'], years, inci(ref['harness']))
+        p = summarise(prime_people(sim, years), years, prime_inci(sim, years) if 'transmission' in COMPONENTS[name] else None)
         window = WINDOWS[name]
         print(f'Max difference, {window[0]}-{window[1]}, as % of the reference:')
         print(f'{"":28s}' + ''.join(f'{k[6:] or k:>9s}' for k in o))
         for label, a, b in [('harness vs original', o, h), ("Optima′ vs harness", h, p), ("Optima′ vs original", o, p)]:
             g = gaps(a, b, years, window)
-            print(f'{label:28s}' + ''.join(f'{g[k]:9.2f}' for k in o))
+            print(f'{label:28s}' + ''.join(f'{g.get(k, np.nan):9.2f}' for k in o))

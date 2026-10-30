@@ -23,6 +23,8 @@ def switch_off(sp, what):
 
 TESTS = sc.objdict(
     A = ['transmission', 'mtct', 'cascade', 'treatment'], # Demography and natural history only
+    B = ['mtct', 'cascade', 'treatment'], # Plus transmission
+    C = ['mtct', 'treatment'], # Plus the cascade (testing, linkage, loss to follow-up, return to care)
 )
 
 def run(simpars, fix):
@@ -32,7 +34,7 @@ def run(simpars, fix):
     t = raw['tvec']
     yearly = [np.argmin(abs(t - y)) for y in range(1990, END+1)]
     return dict(people=raw['people'][:, :, yearly], death=raw['death'][:, :, yearly], otherdeath=raw['otherdeath'][:, yearly],
-                births=raw['births'][:, yearly], years=np.arange(1990, END+1))
+                births=raw['births'][:, yearly], inci=raw['inci'][:, yearly], years=np.arange(1990, END+1))
 
 if __name__ == '__main__':
     dt = 0.02
@@ -47,4 +49,6 @@ if __name__ == '__main__':
         o, h = out[name]['original'], out[name]['harness']
         plhiv = lambda x: x['people'][2:].sum(axis=(0, 1))
         print(f'{name}: PLHIV 2000/2020 original {plhiv(o)[10]:.0f}/{plhiv(o)[30]:.0f}, harness {plhiv(h)[10]:.0f}/{plhiv(h)[30]:.0f}')
-    sc.save('component_refs.obj', out)
+    try:    old = sc.load('component_refs.obj') # Keep the tests not rerun
+    except FileNotFoundError: old = {}
+    sc.save('component_refs.obj', sc.mergedicts(old, out))
