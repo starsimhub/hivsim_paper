@@ -74,3 +74,23 @@ Before ART scale-up (to 2005) the differences are at most 7%. Most of the rest i
 - Holding that share at 63% (`treatvs = dt`) cuts the gap at dt = 0.02 to 16% for new infections and 12% for deaths after 2005, and 3–8% before. Other step-dependent pieces remain, not yet identified. Candidates: rates used directly as probabilities (`hivtest*dt`, `leavecare*dt`, `treatfail*dt`, death rates), the cascade-proportion rules, and the old ageing code (project version 2.11.4 < 2.12.0, `model.py:891`).
 
 Consequence for P2: a continuous-time ODE re-expression cannot be within 2% of Optima at dt = 0.2 unless these discrete-step behaviours are reproduced or made explicit.
+
+### Making the step explicit (option 1, 30 Oct)
+
+`optima_ref/model_dt.py` is a copy of Optima's `model.py` (2.12.2) with switches (`FIX`) that convert each group of step-dependent rules to a step-independent form that reproduces the calibrated step (`REF_DT = 0.2`). With every switch on, it equals the original at dt = 0.2 (to 3e-8 people). `optima_ref/dt_fix.py` runs the ablations.
+
+| Group | Rule in Optima | Conversion that reproduces dt = 0.2 |
+|---|---|---|
+| supp | Suppressed at ART start with probability `1-exp(-dt/treatvs)` | Fixed share, `1-exp(-0.2/treatvs)` = 63% |
+| acute, dwell | Exponential stays, `1-exp(-dt/tau)` (CD4 progression, ART recovery, linkage, risk transitions) | Keep the time spent at the calibrated step: rate `(1-exp(-0.2/tau))/0.2`, i.e. a stay of about `tau + 0.1` (acute: 0.35 y, not 0.24) |
+| cascade, death, usvl, age | Rates used as probabilities, `r*dt` (testing, loss and return to care, treatment failure, deaths, CD4 change on unsuppressed ART, ageing) | Keep the survival over the calibrated step: rate `-ln(1-0.2r)/0.2` |
+
+With all groups on, results converge (dt = 0.02 and 0.01 differ by under 0.2 points). Max difference from the calibrated run in yearly outputs, 2000–2030: PLHIV 1.1%, diagnosed 1.9%, on ART 1.4%, suppressed 1.4%, new infections 3.5% (2018), HIV deaths 3.3% (2030).
+
+Open: the two conversion rules differ (time in state vs survival), with no reason yet why they should. That may mean they are compensating for something else. One candidate already found: switching the project to Optima's newer ageing code (≥ 2.12.0) changes results by 2–7% before 2019 at dt = 0.2.
+
+### Projections are ill-conditioned (30 Oct)
+
+After 2019, new infections and deaths amplify small differences. In the original model, raising `force` by 0.5% changes new infections by +1.8% in 2015 and +12% in 2030, and deaths by +1.3% and +15%. PLHIV changes by only 0.9% and 2.1%. The likely reason: the number on ART does not respond (+0.3%), so the extra people with HIV stay untreated. By 2030 about 0.15M of 1.22M PLHIV are untreated, and they produce most of the new infections and deaths.
+
+Consequence for P2: "within 2% for every output, 2000–2040" can't be met for new infections and deaths in projection years by any re-expression. A difference of 0.1% in PLHIV becomes about 1.5% in 2030 incidence.
