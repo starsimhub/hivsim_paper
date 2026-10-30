@@ -100,6 +100,8 @@ What the rule captures, found on the way (`dt_fix.py` keeps the per-group switch
 
 Per-group conversions (time in state for exponential stays, survival for `r*dt` rules) got to a similar fit (1.6% new infections, 1.1% deaths, 4.2% on ART), but only with a mix of rules and no reason for the mix. The linear reading explains it: the survival conversion of deaths and ageing was standing in for competing risks and the ageing skip.
 
+**Decided (Robyn, 30 Oct): Optima′ keeps Optima's handling of time, quirks included.**
+
 **Consequence for Optima′.** Its continuous-time rates are Optima's per-step probabilities at dt = 0.2 divided by 0.2, with Optima's product structure: progression and cascade rates reduced by the chance of dying in the step, direct transitions where Optima allows two moves in one step (diagnosed and progressed, two age bands), the infection probability per 0.2 y divided by 0.2, and suppression at ART start a fixed 63%. Inputs are Optima's dt = 0.2 series. Population forcing and the ART and cascade targets are rules on levels, applied each step.
 
 ### Projections are ill-conditioned (30 Oct)
