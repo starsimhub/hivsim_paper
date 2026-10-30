@@ -187,7 +187,7 @@ class Transmission:
         people = self.people(sim)
         allpeople = people.sum(axis=0)
         effprev = self.alltrans[:, None]*people/allpeople # States × populations
-        prev = people[self.hiv].sum(axis=0)/allpeople
+        prev = people[2:].sum(axis=0)/allpeople # Everyone with HIV (Optima's allplhiv), including those suppressed
         h = self.inhomopar
         inhomo = (h + self.eps)/(np.exp(h + self.eps) - 1)*np.exp(h*(1 - prev))
 
