@@ -57,3 +57,20 @@ The thing to rebuild is therefore the epidemic model plus its databook inputs. T
 - Several parameters are calibration scale factors, not biology: `force`, `inhomo`, `transnorm`, `initprev`. They have to carry over exactly as values, not be recalibrated.
 - From 2020, projections hold the cascade proportions fixed (`fixproptx`, `fixpropsupp`). The treatment-interruption scenario has to change these rules, so they are part of the scenario interface.
 - The cascade (linkage, loss to follow-up, return to care) is the main structural gap with HIVsim. See the seam spike notes.
+
+## Time-step dependence (30 Oct)
+
+The calibrated Optima Malawi model is a discrete-time model at dt = 0.2, and its results are not converged in dt (`optima_ref/dt_study.py`). Maximum relative difference from dt = 0.2, 2000–2030:
+
+| dt | PLHIV | New infections | HIV deaths | Diagnosed | On ART |
+|---|---|---|---|---|---|
+| 0.1 | 3.6% | 15.1% | 23.4% | 3.1% | 4.1% |
+| 0.05 | 7.4% | 31.0% | 43.9% | 6.2% | 5.6% |
+| 0.02 | 10.6% | 46.0% | 64.8% | 8.8% | 7.6% |
+
+Before ART scale-up (to 2005) the differences are at most 7%. Most of the rest is one mechanism:
+
+- **Viral suppression on ART is a step-size artefact.** People starting ART go straight to suppressed with probability `1 - exp(-dt/treatvs)` (`model.py:1057`). With `treatvs` = 0.2 y that is 63% at dt = 0.2. The only other route from unsuppressed to suppressed is viral load monitoring, and `numvlmon` is 0 throughout. So the share of people on ART who are suppressed in 2006–2010 is 0.65 at dt = 0.2, 0.42 at dt = 0.1 and 0.11 at dt = 0.02.
+- Holding that share at 63% (`treatvs = dt`) cuts the gap at dt = 0.02 to 16% for new infections and 12% for deaths after 2005, and 3–8% before. Other step-dependent pieces remain, not yet identified. Candidates: rates used directly as probabilities (`hivtest*dt`, `leavecare*dt`, `treatfail*dt`, death rates), the cascade-proportion rules, and the old ageing code (project version 2.11.4 < 2.12.0, `model.py:891`).
+
+Consequence for P2: a continuous-time ODE re-expression cannot be within 2% of Optima at dt = 0.2 unless these discrete-step behaviours are reproduced or made explicit.
