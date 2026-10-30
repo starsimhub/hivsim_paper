@@ -36,7 +36,7 @@ The thing to rebuild is therefore the epidemic model plus its databook inputs. T
 | Testing | `hivtest` (rate by population and year), `aidstest` | |
 | Linkage and retention | `linktocare`, `aidslinktocare`, `leavecare`, `aidsleavecare`, `returntocare` | **HIVsim has no equivalent** (no in-care or lost-to-follow-up states) |
 | ART initiation | `numtx` (total number on ART, data to 2020), `allcd4eligibletx` (no CD4 rule from 2018), `fixproptx` 2020 | Hits the number-on-ART target. After 2020 the proportion of people in care who are on ART is held fixed |
-| Viral suppression and failure | `treatvs` 0.2 y, `treatfail` 0.02/y, `numvlmon` (0 throughout), `regainvs`, `fixpropsupp` 2020 | |
+| Viral suppression and failure | `treatvs` 0.2 y, `treatfail` 0.02/y, `numvlmon` (from 2009.4, rising to 1.1M tests/year by 2019), `regainvs`, `fixpropsupp` 2020 | |
 | CD4 on ART | `svlrecov*`, `usvlprog*`, `usvlrecov*` | Recovery while suppressed, movement up and down while unsuppressed |
 | Circumcision | `propcirc`, `numcirc` (0) | Traditional circumcision only |
 | Initialisation | `initprev` by population, `initcd4weight` 0.7 | |
@@ -70,7 +70,7 @@ The calibrated Optima Malawi model is a discrete-time model at dt = 0.2, and its
 
 Before ART scale-up (to 2005) the differences are at most 7%. Most of the rest is one mechanism:
 
-- **Viral suppression on ART is a step-size artefact.** People starting ART go straight to suppressed with probability `1 - exp(-dt/treatvs)` (`model.py:1057`). With `treatvs` = 0.2 y that is 63% at dt = 0.2. The only other route from unsuppressed to suppressed is viral load monitoring, and `numvlmon` is 0 throughout. So the share of people on ART who are suppressed in 2006–2010 is 0.65 at dt = 0.2, 0.42 at dt = 0.1 and 0.11 at dt = 0.02.
+- **Viral suppression on ART is a step-size artefact.** People starting ART go straight to suppressed with probability `1 - exp(-dt/treatvs)` (`model.py:1057`). With `treatvs` = 0.2 y that is 63% at dt = 0.2. The only other route from unsuppressed to suppressed is viral load monitoring (`numvlmon`), which starts in 2009.4 and is small until about 2011. So the share of people on ART who are suppressed in 2006–2010 is 0.65 at dt = 0.2, 0.42 at dt = 0.1 and 0.11 at dt = 0.02.
 - Holding that share at 63% (`treatvs = dt`) cuts the gap at dt = 0.02 to 16% for new infections and 12% for deaths after 2005, and 3–8% before. Other step-dependent pieces remain, not yet identified. Candidates: rates used directly as probabilities (`hivtest*dt`, `leavecare*dt`, `treatfail*dt`, death rates), the cascade-proportion rules, and the old ageing code (project version 2.11.4 < 2.12.0, `model.py:891`).
 
 Consequence for P2: a continuous-time ODE re-expression cannot be within 2% of Optima at dt = 0.2 unless these discrete-step behaviours are reproduced or made explicit.
@@ -92,7 +92,7 @@ The 2020 step (new infections −1.0% in 2019, −2.0% in 2020, and the same bey
 
 What the rule captures, found on the way (`dt_fix.py` keeps the per-group switches):
 
-- **Suppression at ART start** is 63%, the per-step chance `1-exp(-0.2/treatvs)`, with no other route to suppression (`numvlmon` = 0). This is the largest single effect.
+- **Suppression at ART start** is 63%, the per-step chance `1-exp(-0.2/treatvs)`, with no other route to suppression until viral load monitoring starts (2009.4). This is the largest single effect.
 - **Every stage takes at least one step.** Someone leaving a stage partway through a step starts the next one only at the step's end, so a stay of tau lasts 0.2/p ≈ tau + 0.1 y. Acute infection lasts 0.35 y, not 0.24, and CD4 > 500 lasts 1.05 y, not 0.95. At small steps without this, there are 0.70× as many people in acute infection and 0.90× in CD4 > 500 before ART, and people reach CD4 < 50 sooner, so deaths are 7% higher per untreated person.
 - **Competing risks favour death.** Within a step, death comes first and every other move applies only to survivors (probabilities multiplied by `1 - death*dt`).
 - **Ageing can skip a band.** In the old ageing code (project version 2.11.4), people who age into a band can age out of it in the same step.

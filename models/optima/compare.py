@@ -5,8 +5,8 @@ import numpy as np, sciris as sc
 import optima_prime as opp
 
 REFS = Path(__file__).resolve().parents[2] / 'optima_ref' / 'component_refs.obj'
-COMPONENTS = dict(A=('demography', 'natural_history'), B=('demography', 'natural_history', 'transmission'), C=('demography', 'natural_history', 'transmission', 'cascade'))
-WINDOWS = dict(A=(1991, 2000), B=(1991, 2020), C=(1991, 2020)) # Without transmission (A), people with HIV die out: compare while there are some
+COMPONENTS = dict(A=('demography', 'natural_history'), B=('demography', 'natural_history', 'transmission'), C=('demography', 'natural_history', 'transmission', 'cascade'), D=('demography', 'natural_history', 'transmission', 'cascade', 'treatment'), E=('demography', 'natural_history', 'transmission', 'cascade', 'treatment', 'mtct'))
+WINDOWS = dict(A=(1991, 2000), B=(1991, 2020), C=(1991, 2020), D=(1991, 2020), E=(1991, 2020)) # Without transmission (A), people with HIV die out: compare while there are some
 
 def summarise(people, years, inci=None):
     """ Stocks from a (states × pops × years) array, and new infections per year if given """
@@ -16,6 +16,8 @@ def summarise(people, years, inci=None):
         out[f'plhiv_{k}'] = hiv[i::6].sum(axis=(0, 1))
     out['plhiv_15_49'] = None
     out['diag'] = people[8:].sum(axis=(0, 1)) # Diagnosed: in dx, care, lost, or on ART
+    out['treat'] = people[26:].sum(axis=(0, 1)) # On ART
+    out['supp'] = people[32:].sum(axis=(0, 1)) # Virally suppressed
     out['inci'] = inci
     return {k: v for k, v in out.items() if v is not None}
 
@@ -33,7 +35,7 @@ def prime_people(sim, years):
 def prime_inci(sim, years):
     """ Optima′'s new infections per year, in the step that starts at each whole year """
     r = sim.results.optima
-    flows = [r[k] for k in r.keys() if k.startswith('infection_')]
+    flows = [r[k] for k in r.keys() if k.startswith('infection_') or k in ('birth_undx', 'birth_dx')] # Optima counts mother-to-child transmission as new infections
     if not flows: return None
     t = np.array([d.years for d in flows[0].timevec])
     total = sum(np.asarray(f) for f in flows)
@@ -42,7 +44,7 @@ def prime_inci(sim, years):
 def gaps(a, b, years, window):
     """ Max difference over the window, as a % of the largest value of the reference in the window """
     sel = (years >= window[0]) & (years <= window[1])
-    return {k: 100*np.max(np.abs(b[k][sel] - a[k][sel]))/np.max(np.abs(a[k][sel])) for k in a if b.get(k) is not None}
+    return {k: 100*np.max(np.abs(b[k][sel] - a[k][sel]))/np.max(np.abs(a[k][sel])) for k in a if b.get(k) is not None and np.max(np.abs(a[k][sel])) > 0}
 
 if __name__ == '__main__':
     refs = sc.load(REFS)

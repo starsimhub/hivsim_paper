@@ -25,6 +25,8 @@ TESTS = sc.objdict(
     A = ['transmission', 'mtct', 'cascade', 'treatment'], # Demography and natural history only
     B = ['mtct', 'cascade', 'treatment'], # Plus transmission
     C = ['mtct', 'treatment'], # Plus the cascade (testing, linkage, loss to follow-up, return to care)
+    D = ['mtct'], # Plus treatment (ART targets, suppression, held proportions)
+    E = [], # The whole model
 )
 
 def run(simpars, fix):

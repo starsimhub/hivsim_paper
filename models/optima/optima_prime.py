@@ -22,6 +22,66 @@ def load(reffile=REFFILE):
     return sc.objdict(sc.load(reffile))
 
 
+class Regain:
+    """ Optima's chance, in a step of 0.2 years, that someone on unsuppressive ART regains suppression: viral load tests (numvlmon) found failing and switched (regainvs), spread over everyone on ART, while the suppressed proportion is not held """
+    def __init__(self, ref):
+        sp, st = ref.simpars, ref.settings
+        self.tvec, self.eps = sp['tvec'], 1e-3
+        names = [s.replace('-', '_') for s in st['statelabels']]
+        self.alltx = [n for n in names if n.startswith(tuple(TREATED))]
+        self.series = np.where(self.tvec <= sp['fixpropsupp'], sp['regainvs']*sp['numvlmon']*REF_DT, 0.0)
+        self._ti, self._prob = None, None
+
+    def prob(self, sim):
+        if self._ti != sim.ti:
+            eng = sim.diseases.optima.engine
+            ontx = sum(eng.y[eng.state_comps[n]].sum() for n in self.alltx)
+            self._ti, self._prob = sim.ti, min(Transmission.at(self, self.series, sim.now.years)/(self.eps + ontx), 1)
+        return self._prob
+
+
+class Births:
+    """
+    Optima's births and mother-to-child transmission (model.py, deprecated_births(): projects before 2.12.0, which do
+    not diagnose mothers for PMTCT), worked out once a step from the compartments at its start. Returns births per year
+    into each population: uninfected, infected to undiagnosed mothers, and infected to diagnosed mothers.
+    """
+    def __init__(self, ref, mtct=True):
+        sp, st = ref.simpars, ref.settings
+        self.tvec, self.eps = sp['tvec'], 1e-3
+        self.names = [s.replace('-', '_') for s in st['statelabels']]
+        rows = lambda cs: [self.names.index(f'{c}_{k}') for c in cs for k in CD4]
+        self.undx, self.alldx, self.alltx = rows(['undx']), rows(['dx', 'care', 'lost', 'usvl', 'svl']), rows(TREATED)
+        assert np.all(np.asarray(sp['relhivbirth']) == 1) and np.all(np.isnan(sp['proppmtct'])), 'relhivbirth other than 1, or proppmtct, are not handled yet'
+        self.rates = np.einsum('ij,ik->ijk', np.asarray(sp['birthtransit']), sp['birth']) # Mother pop × child pop × time, births per woman per year
+        effmtct = sp['mtctbreast']*sp['breast'] + sp['mtctnobreast']*(1 - sp['breast'])
+        self.effmtct = effmtct if mtct else 0*effmtct
+        self.pmtcteff = (1 - sp['effpmtct'])*self.effmtct
+        self.numpmtct = sp['numpmtct']
+        self.transmission = None # To read the compartments
+        self._ti, self._out = None, None
+
+    def at(self, arr, year):
+        return Transmission.at(self, arr, year)
+
+    def inflows(self, sim):
+        if self._ti == sim.ti:
+            return self._out
+        eng = sim.diseases.optima.engine
+        people = np.array([eng.y[eng.state_comps[n]].sum(axis=0) for n in self.names])
+        year = sim.now.years
+        rates = self.at(self.rates, year) # Per year
+        total, undx, alldx, alltx = people.sum(axis=0), people[self.undx].sum(axis=0), people[self.alldx].sum(axis=0), people[self.alltx].sum(axis=0)
+        pregdx = (alldx*rates.sum(axis=1)).sum()*REF_DT # Diagnosed women giving birth in a step
+        proppmtct = min(self.at(self.numpmtct, year)*REF_DT/(self.eps*REF_DT + pregdx), 1) # Optima: numpmtct over the steps of a year, over those eligible
+        effmtct, pmtcteff = self.at(self.effmtct, year), self.at(self.pmtcteff, year)
+        births = rates.T @ total
+        mtctundx = rates.T @ undx*effmtct
+        mtctdx = rates.T @ alldx*(proppmtct*pmtcteff + (1 - proppmtct)*effmtct) + rates.T @ alltx*pmtcteff # Mothers on ART count as both on treatment and eligible for PMTCT, as in Optima
+        self._ti, self._out = sim.ti, (births - mtctundx - mtctdx, mtctundx, mtctdx)
+        return self._out
+
+
 def cascade_probs(sp):
     """
     Optima's probabilities, in a step of 0.2 years, of moving along the cascade for those not on ART (model.py, "Calculate
@@ -180,20 +240,56 @@ def make_disease(ref, components=('demography', 'natural_history')):
                 trs[f'bgdeath_{s.name}'] = ss.death(s, rate=ss.peryear(1)*inp.by(bg*(1 - d[i])/REF_DT))
                 survive = (1 - d[i])*(1 - bg) # Optima applies death first, and every other move to those who survive it
                 p = prog[i] if i < len(CD4) - 1 else 0 # No progression from CD4<50
-                moves = {f'{c}_{CD4[min(i+1, 5)]}': p*(1 - q[c][i]), f'{NEXT[c]}_{k}': (1 - p)*q[c][i], f'{NEXT[c]}_{CD4[min(i+1, 5)]}': p*q[c][i]}
+                nxt = CD4[min(i+1, len(CD4) - 1)]
+                moves = {}
+                for dst, prob in [(f'{c}_{nxt}', p*(1 - q[c][i])), (f'{NEXT[c]}_{k}', (1 - p)*q[c][i]), (f'{NEXT[c]}_{nxt}', p*q[c][i])]:
+                    moves[dst] = moves.get(dst, 0) + prob # From CD4<50, the last two are the same move
                 for dst, prob in moves.items():
                     if dst != s.name and np.any(prob):
                         trs[f'{s.name}_to_{dst}'] = s >> st[dst] @ (ss.peryear(1)*inp.by(prob*survive/REF_DT))
 
-    # Births into F0-4 and M0-4, from all women in the mother populations, at Optima's birth rate per woman
+    if 'treatment' in components:
+        q = cascade_probs(sp)
+        fixsupp = sp['fixpropsupp'] # Treatment failure runs only while the suppressed proportion is not held (Optima's userate(propsupp))
+        fail = np.where(inp.tvec <= fixsupp, sp['treatfail']*REF_DT, 0.0)*np.ones(bg.shape)
+        regain = Regain(ref) # Regaining suppression through viral load monitoring: a probability per step from the number on ART, so worked out each step
+        svlrecov = 1 - np.exp(-REF_DT/np.array([np.inf, np.inf, sp['svlrecovgt350'], sp['svlrecovgt200'], sp['svlrecovgt50'], sp['svlrecovlt50']]))
+        u = lambda key: sp[key]*REF_DT # Rates on unsuppressive ART, used as probabilities per step
+        cd4moves = dict( # Probability of each CD4 stage next step, from each stage (model.py lines 303-351)
+            svl  = [{0: 1 - prog[0], 1: prog[0]}, {1: 1}] + [{i: 1 - svlrecov[i], i-1: svlrecov[i]} for i in range(2, 6)],
+            usvl = [{0: 1 - prog[0], 1: prog[0]}, {1: 1 - u('usvlproggt500'), 2: u('usvlproggt500')}] +
+                   [{i-1: u(f'usvlrecov{CD4[i]}'), i: 1 - u(f'usvlrecov{CD4[i]}') - u(f'usvlprog{CD4[i]}'), i+1: u(f'usvlprog{CD4[i]}')} for i in range(2, 5)] +
+                   [{4: u('usvlrecovlt50'), 5: 1 - u('usvlrecovlt50')}],
+        )
+        for c, other, switch in [('svl', 'usvl', fail), ('usvl', 'svl', regain)]:
+            for i, k in enumerate(CD4):
+                s = st[f'{c}_{k}']
+                dtx = d[i]*sp[f'death{c}'] # HIV death on ART
+                trs[f'hivdeath_{s.name}'] = ss.death(s, rate=ss.peryear(dtx/REF_DT))
+                trs[f'bgdeath_{s.name}'] = ss.death(s, rate=ss.peryear(1)*inp.by(bg*(1 - dtx)/REF_DT))
+                survive = (1 - dtx)*(1 - bg)
+                loss = q['care'][i]
+                cascade = {c: (1 - loss)*(1 - switch), other: (1 - loss)*switch, 'lost': loss} if c == 'svl' else {'lost': loss}
+                for j, pcd4 in cd4moves[c][i].items():
+                    for dc in [c, other, 'lost']:
+                        dst = f'{dc}_{CD4[j]}'
+                        if dst == s.name: continue
+                        if c == 'usvl' and dc != 'lost': # The chance of regaining suppression changes each step
+                            base = pcd4*(1 - loss)*survive*np.ones(bg.shape)/REF_DT
+                            factor = (lambda r: r) if dc == 'svl' else (lambda r: 1 - r)
+                            rate = lambda sim, base=base, factor=factor: ss.peryear(Transmission.at(regain, base, sim.now.years)*factor(regain.prob(sim)))
+                            trs[f'{s.name}_to_{dst}'] = s >> st[dst] @ ss.by(pop=rate)
+                        else:
+                            prob = pcd4*cascade[dc]*survive*np.ones(bg.shape)
+                            if np.any(prob):
+                                trs[f'{s.name}_to_{dst}'] = s >> st[dst] @ (ss.peryear(1)*inp.by(prob/REF_DT))
+
+    # Births into F0-4 and M0-4, from all women in the mother populations, at Optima's birth rate per woman, with mother-to-child transmission
     if 'demography' in components:
-        bt = np.asarray(sp['birthtransit'])
-        mothers = bt.any(axis=1)
-        w = inp.by(np.where(mothers[:, None], sp['birth'], 0.0))
-        dest = inp.by(bt[mothers].mean(axis=0)) # The share of births to each child population (the same for every mother here)
-        assert np.allclose(bt[mothers], bt[mothers][0]), 'Child shares that differ by mother are not handled yet'
-        everyone = sum(st.values()[1:], st.values()[0])
-        trs['birth'] = ss.null >> st.susreg @ dest*(w*everyone).n
+        births = Births(ref, mtct='mtct' in components)
+        for i, (name, dst) in enumerate([('birth', st.susreg), ('birth_undx', st.undx_acute), ('birth_dx', st.dx_acute)]):
+            if i == 0 or 'mtct' in components:
+                trs[name] = ss.null >> dst @ ss.by(pop=lambda sim, i=i: ss.peryear(births.inflows(sim)[i]))
 
     # Ageing between bands (Optima's agerate per year, by source population), and risk transitions (FSW, Clients <-> general)
     if 'demography' in components:
@@ -257,11 +353,90 @@ class ForcePopsize(ss.Intervention):
         return
 
 
+class CascadeTargets(ss.Intervention):
+    """
+    Optima's rules on the cascade's levels, applied each step after the population forcing (model.py, "Proportions"):
+    the number on ART from numtx (people in care start it, lowest CD4 first before allcd4eligibletx; Optima's chance of
+    viral suppression within a step of 0.2 years, at the start), and proportions held from their fix years.
+
+    Moving a computed number of people has no interface that records it, so this writes the engine's compartments directly.
+    """
+    def __init__(self, ref, **kwargs):
+        super().__init__(**kwargs)
+        sp = ref.simpars
+        self.tvec, self.numtx = sp['tvec'], sp['numtx']
+        self.eligible = sp['allcd4eligibletx']
+        self.treatvs = 1 - np.exp(-REF_DT/max(1e-3, sp['treatvs'])) # Share suppressed at the start of ART
+        self.fixyears = dict(propdx=sp['fixpropdx'], propcare=sp['fixpropcare'], proptx=sp['fixproptx'], propsupp=sp['fixpropsupp'])
+        for name in self.fixyears:
+            assert np.all(np.isnan(sp[name])), f'Given values of {name} are not handled yet'
+        self.held = {} # Proportions held from their fix years
+        self.eps = 1e-3
+
+    def step(self):
+        eng = self.sim.diseases.optima.engine
+        y, comps = eng.y, eng.state_comps
+        idx = lambda c: np.array([comps[f'{c}_{k}'][0] for k in CD4]) # One row per CD4 stage (each state has one compartment)
+        undx, dx, care, lost, usvl, svl = [idx(c) for c in UNTREATED + TREATED]
+        alltx, allcare = np.concatenate([usvl, svl]), np.concatenate([care, usvl, svl])
+        alldx, allplhiv = np.concatenate([dx, care, lost, usvl, svl]), np.concatenate([undx, dx, care, lost, usvl, svl])
+        year = self.sim.now.years
+        structure = dict(propdx=(undx, dx, alldx, allplhiv), propcare=(np.concatenate([dx, lost]), care, allcare, alldx),
+                         proptx=(care, alltx, alltx, allcare), propsupp=(usvl, svl, svl, alltx))
+        for name, (lower, upper, numer, denom) in structure.items():
+            if name not in self.held and year >= self.fixyears[name] - 1e-9: # Hold the proportion from its fix year, at its value then
+                self.held[name] = y[numer].sum()/(self.eps + y[denom].sum())
+            actual, available = y[numer].sum(), y[denom].sum()
+            if name in self.held:
+                wanted = self.held[name]*available
+            elif name == 'proptx':
+                wanted = np.interp(year, self.tvec, self.numtx)
+            else:
+                continue
+            diff = wanted - actual
+            if diff > self.eps: # Move people up the cascade
+                up = y[lower]
+                total = up.sum()
+                if total <= self.eps: continue
+                diff = min(diff, total - self.eps)
+                if name == 'proptx' and year < self.eligible: # Lowest CD4 first
+                    movers = np.zeros_like(up)
+                    for i in reversed(range(len(CD4))):
+                        if diff > self.eps and up[i].sum() > self.eps:
+                            n = min(diff, up[i].sum() - self.eps)
+                            movers[i] = n*up[i]/up[i].sum()
+                            diff -= movers[i].sum()
+                else:
+                    movers = diff*up/total
+                y[lower] -= movers
+                if name == 'proptx':
+                    y[usvl] += movers*(1 - self.treatvs)
+                    y[svl] += movers*self.treatvs
+                elif name == 'propcare':
+                    y[care] += movers[:len(CD4)] + movers[len(CD4):] # From dx and from lost
+                else:
+                    y[upper] += movers
+            elif diff < -self.eps: # Move people down the cascade
+                down = y[upper] if name != 'proptx' else y[alltx]
+                total = down.sum()
+                if total <= self.eps: continue
+                movers = min(-diff, total - self.eps)*down/total
+                if name == 'proptx':
+                    y[alltx] -= movers
+                    y[care] += movers[:len(CD4)] + movers[len(CD4):]
+                else:
+                    y[upper] -= movers
+                    y[lost if name == 'propcare' else lower] += movers
+        return
+
+
 def make_sim(ref=None, components=('demography', 'natural_history'), dt=0.02, end=2030, **kwargs):
     ref = ref or load()
     dis, st = make_disease(ref, components)
     total = ref.raw['people'][:, :, 0].sum()
     interventions = [ForcePopsize(ref, name='force_popsize')] if 'demography' in components and ref.simpars['forcepopsize'] else []
+    if 'treatment' in components:
+        interventions.append(CascadeTargets(ref, name='cascade_targets'))
     sim = ss.Sim(dis, interventions=interventions, solver='ode', start=1990, stop=end, dt=dt, total_pop=total, verbose=0, **kwargs)
     return sim
 
